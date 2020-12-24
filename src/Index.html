@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-giJF6kkoqNQ00vy+HMDP7azOuL0xtbfIcaT9wjKHr8RbDVddVHyTfAAsrekwKmP1"
+      crossorigin="anonymous"
+    />
+    <style>
+      /* .cargando {
+        background-color: lightgray;
+        width: 100vw;
+        height: 100vh;
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 10000; */
+      }
+    </style>
+    <title>UserForm1</title>
+  </head>
+  <body>
+    <h4 class="text-center">Ingreso de inventario</h4>
+    <form class="container ms-2 pe-4 mt-3">
+      <div class="mb-3">
+        <label for="categoria" class="form-label">Categoría</label>
+        <select class="form-select" id="categoria"></select>
+        <div class="invalid-feedback">Ingresa una categoría</div>
+      </div>
+      <div class="mb-3">
+        <label for="item" class="form-label">Item</label>
+        <select class="form-select" id="item"></select>
+        <div class="invalid-feedback">Ingresa un item</div>
+      </div>
+      <div class="mb-3">
+        <label for="tipo" class="form-label">Tipo</label>
+        <select class="form-select" id="tipo"></select>
+        <div class="invalid-feedback">Ingresa el tipo</div>
+      </div>
+      <!-- <div class="mb-3">
+        <label for="cantidad" class="form-label">Cantidad</label>
+        <input type="number" class="form-control" id="cantidad" />
+        <div class="invalid-feedback">Ingresa una cantidad (1-999)</div>
+      </div> -->
+
+      <label for="cantidad" class="form-label">Cantidad</label>
+      <div class="input-group mb-3">
+        <input type="number" class="form-control" id="cantidad" />
+        <span class="input-group-text">En stock: <span id="stock" class="ms-1 me-1"></span>ud.</span>
+        <div class="invalid-feedback">Ingresa una cantidad (1-999)</div>
+      </div>
+
+      <div class="mb-3">
+        <label for="fecha-ingreso" class="form-label">Fecha de ingreso</label>
+        <input type="date" class="form-control" id="fecha-ingreso" />
+        <div class="invalid-feedback">Ingresa una fecha</div>
+      </div>
+      <div class="mb-3">
+        <label for="nota-delivery" class="form-label">Nota delivery</label>
+        <input type="text" class="form-control" id="nota-delivery" />
+        <div class="invalid-feedback">Ingresa una nota</div>
+      </div>
+      <div class="mb-3">
+        <label for="comentarios" class="form-label">Comentarios</label>
+        <textarea class="form-control" id="comentarios" rows="3"></textarea>
+      </div>
+      <button class="btn btn-primary" id="btn-agregar">Agregar</button>
+    </form>
+
+    <div id="alerta-error" class="container" style="visibility: hidden">
+      <div class="alert alert-danger mt-3 text-center" role="alert">Por favor ingrese los datos obligatorios</div>
+    </div>
+    <div id="cargando" class="container">
+      <div class="cargando d-flex text-center justify-content-center align-items-center">
+        <div>
+          <div class="mb-3"><strong>Cargando...</strong></div>
+          <div class="spinner-border text-success" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/js/bootstrap.bundle.min.js"
+      integrity="sha384-ygbV9kiqUc6oa4msXn9868pTtWMgiQaeYH7/t7LECLbyPA2x65Kgf80OJFdroafW"
+      crossorigin="anonymous"
+    ></script>
+
+    <script>
+      const formulario = document.querySelector("form");
+      const categoriaInput = document.querySelector("#categoria");
+      const itemInput = document.querySelector("#item");
+      const tipoInput = document.querySelector("#tipo");
+      const cantidadInput = document.querySelector("#cantidad");
+      const cantidadStock = document.querySelector("#stock");
+      const fechaInput = document.querySelector("#fecha-ingreso");
+      const notaDeliveryInput = document.querySelector("#nota-delivery");
+      const comentariosInput = document.querySelector("#comentarios");
+      const btnAgregar = document.querySelector("#btn-agregar");
+      const alertaError = document.querySelector("#alerta-error");
+      const cargando = document.querySelector("#cargando");
+
+      let arrayOfArraysCopia;
+
+      // Se usa para llenar los dropdowns del html - función general
+      const cargarHtml = (dataInput, arrayOfArrays, index) => {
+        let arrayTemporal = []; //Se usa para controlar la repetición del elemento
+        let htmlOption = document.createElement("option");
+        htmlOption.textContent = "Seleccionar opción";
+        htmlOption.value = "";
+        htmlOption.selected = true;
+        dataInput.appendChild(htmlOption);
+        arrayOfArrays.forEach((array) => {
+          if (arrayTemporal.indexOf(array[index]) === -1) {
+            // Coloca un option si el elemento todavía no está en el arrayTemporal
+            htmlOption = document.createElement("option");
+            htmlOption.textContent = array[index];
+            dataInput.appendChild(htmlOption);
+            arrayTemporal.push(array[index]);
+          }
+        });
+      };
+
+      // Carga la data en el html
+      const cargarData = () => {
+        // Se ejecuta si arrayData no tiene errores
+        google.script.run
+          .withSuccessHandler((arrayOfArrays) => {
+            arrayOfArraysCopia = [...arrayOfArrays]; // Esto es importante para evitar que se ejecuten la consulta al backend una y otra vez
+            cargarHtml(categoriaInput, arrayOfArrays, 0);
+            itemInput.disabled = true;
+            tipoInput.disabled = true;
+            cargando.remove();
+          })
+          .arrayData(); // Ejecuta la función de obtiene el array de la hoja data
+      };
+
+      // Carga el stock en el html
+      const cargarStock = () => {
+        if (itemInput.value != "") {
+          cantidadStock.innerHTML = "";
+          google.script.run
+            .withSuccessHandler((arrayOfArrays) => {
+              arrayOfArrays = arrayOfArrays.filter(
+                (array) => array[0] === categoriaInput.value && array[1] === itemInput.value && array[2] === tipoInput.value
+              );
+              if (arrayOfArrays[0]) {
+                cantidadStock.innerHTML = arrayOfArrays[0][3];
+              } else {
+                cantidadStock.innerHTML = 0;
+              }
+            })
+            .arrayStock();
+        }
+      };
+
+      //console.log(cargarStock());
+
+      const itemsFiltrados = () => {
+        itemInput.innerHTML = "";
+        cantidadStock.innerHTML = "";
+        const arrayOfArraysTemporal = arrayOfArraysCopia.filter((array) => array[0] === categoriaInput.value);
+        if (categoriaInput.value === "") {
+          itemInput.disabled = true;
+          tipoInput.disabled = true;
+        } else {
+          cargarHtml(itemInput, arrayOfArraysTemporal, 1);
+          cargarHtml(tipoInput, arrayOfArraysTemporal, 2);
+          itemInput.disabled = false;
+          tipoInput.disabled = true;
+        }
+      };
+
+      const tiposFiltrados = () => {
+        tipoInput.innerHTML = "";
+        cantidadStock.innerHTML = "";
+        const arrayOfArraysTemporal = arrayOfArraysCopia.filter((array) => array[0] === categoriaInput.value && array[1] === itemInput.value);
+        if (itemInput.value === "" || itemInput.disabled) {
+          tipoInput.disabled = true;
+        } else {
+          cargarHtml(tipoInput, arrayOfArraysTemporal, 2);
+          tipoInput.disabled = false;
+        }
+      };
+
+      const esteticaValidar = () => {
+        if (categoriaInput.value === "") {
+          categoriaInput.classList.remove("is-valid");
+          categoriaInput.classList.add("is-invalid");
+        } else {
+          categoriaInput.classList.remove("is-invalid");
+          categoriaInput.classList.add("is-valid");
+        }
+        if (itemInput.value === "") {
+          itemInput.classList.remove("is-valid");
+          itemInput.classList.add("is-invalid");
+        } else {
+          itemInput.classList.remove("is-invalid");
+          itemInput.classList.add("is-valid");
+        }
+        if (tipoInput.value === "") {
+          tipoInput.classList.remove("is-valid");
+          tipoInput.classList.add("is-invalid");
+        } else {
+          tipoInput.classList.remove("is-invalid");
+          tipoInput.classList.add("is-valid");
+        }
+        if (cantidadInput.value === "" || cantidadInput.value <= 0 || cantidadInput.value >= 999) {
+          cantidadInput.classList.remove("is-valid");
+          cantidadInput.classList.add("is-invalid");
+        } else {
+          cantidadInput.classList.remove("is-invalid");
+          cantidadInput.classList.add("is-valid");
+        }
+        if (fechaInput.value === "") {
+          fechaInput.classList.remove("is-valid");
+          fechaInput.classList.add("is-invalid");
+        } else {
+          fechaInput.classList.remove("is-invalid");
+          fechaInput.classList.add("is-valid");
+        }
+        // if (notaDeliveryInput.value === "") {
+        //   notaDeliveryInput.classList.remove("is-valid");
+        //   notaDeliveryInput.classList.add("is-invalid");
+        // } else {
+        //   notaDeliveryInput.classList.remove("is-invalid");
+        //   notaDeliveryInput.classList.add("is-valid");
+        // }
+        // if (comentariosInput.value === "") {
+        //   comentariosInput.classList.remove("is-valid");
+        //   comentariosInput.classList.add("is-invalid");
+        // } else {
+        //   comentariosInput.classList.remove("is-invalid");
+        //   comentariosInput.classList.add("is-valid");
+        // }
+      };
+
+      const validarFormulario = () => {
+        if (categoriaInput.value === "") {
+          categoriaInput.classList.add("is-invalid");
+          categoriaInput.focus();
+          alertaError.style.visibility = "visible";
+          setTimeout(() => {
+            alertaError.style.visibility = "hidden";
+          }, 2000);
+          return false;
+        }
+        if (itemInput.value === "") {
+          itemInput.classList.add("is-invalid");
+          itemInput.focus();
+          alertaError.style.visibility = "visible";
+          setTimeout(() => {
+            alertaError.style.visibility = "hidden";
+          }, 2000);
+          return false;
+        }
+        if (tipoInput.value === "") {
+          tipoInput.classList.add("is-invalid");
+          tipoInput.focus();
+          alertaError.style.visibility = "visible";
+          setTimeout(() => {
+            alertaError.style.visibility = "hidden";
+          }, 2000);
+          return false;
+        }
+        if (cantidadInput.value === "" || cantidadInput.value <= 0 || cantidadInput.value >= 999) {
+          cantidadInput.classList.add("is-invalid");
+          cantidadInput.focus();
+          alertaError.style.visibility = "visible";
+          setTimeout(() => {
+            alertaError.style.visibility = "hidden";
+          }, 2000);
+          return false;
+        }
+        if (fechaInput.value === "") {
+          fechaInput.classList.add("is-invalid");
+          fechaInput.focus();
+          alertaError.style.visibility = "visible";
+          setTimeout(() => {
+            alertaError.style.visibility = "hidden";
+          }, 2000);
+          return false;
+        }
+        // if (notaDeliveryInput.value === "") {
+        //   notaDeliveryInput.classList.add("is-invalid");
+        //   notaDeliveryInput.focus();
+        //   alertaError.style.visibility = "visible";
+        //   setTimeout(() => {
+        //     alertaError.style.visibility = "hidden";
+        //   }, 2000);
+        //   return false;
+        // }
+        // if (comentariosInput.value === "") {
+        //   comentariosInput.classList.add("is-invalid");
+        //   comentariosInput.focus();
+        //   return false;
+        // }
+        categoriaInput.classList.remove("is-valid");
+        itemInput.classList.remove("is-valid");
+        tipoInput.classList.remove("is-valid");
+        cantidadInput.classList.remove("is-valid");
+        fechaInput.classList.remove("is-valid");
+        notaDeliveryInput.classList.remove("is-valid");
+        cantidadStock.innerHTML = "";
+        // comentariosInput.classList.remove("is-valid");
+        return true;
+      };
+
+      // Registra el item y la cantidad en la hoja bd
+      const registro = (e) => {
+        e.preventDefault();
+        if (validarFormulario()) {
+          const registro = {
+            categoria: categoriaInput.value,
+            item: itemInput.value,
+            tipo: tipoInput.value,
+            cantidad: cantidadInput.value,
+            fechaIngreso: fechaInput.value,
+            notaDelivery: notaDeliveryInput.value,
+            comentarios: comentariosInput.value,
+          };
+          google.script.run
+            .withSuccessHandler(() => {
+              // resetea los inputs
+              categoriaInput.selectedIndex = 0;
+              itemInput.selectedIndex = 0;
+              tipoInput.selectedIndex = 0;
+              itemInput.disabled = true;
+              tipoInput.disabled = true;
+              cantidadInput.value = "";
+              fechaInput.value = "";
+              notaDeliveryInput.value = "";
+              comentariosInput.value = "";
+            })
+            .agregarNuevaFila(registro); // agrega la nueva fila a la hoja bd
+        }
+      };
+      // listener del boton agregar
+      btnAgregar.addEventListener("click", registro);
+      // ejecutará la función cargarData al finalizar la carga del html
+      document.addEventListener("DOMContentLoaded", cargarData);
+      // ejecutará la función al cambiar el input categoría
+      categoriaInput.addEventListener("change", itemsFiltrados);
+      itemInput.addEventListener("change", tiposFiltrados);
+      tipoInput.addEventListener("change", cargarStock);
+      formulario.addEventListener("change", () => {
+        esteticaValidar();
+      });
+    </script>
+  </body>
+</html>
