@@ -9,6 +9,7 @@
       integrity="sha384-giJF6kkoqNQ00vy+HMDP7azOuL0xtbfIcaT9wjKHr8RbDVddVHyTfAAsrekwKmP1"
       crossorigin="anonymous"
     />
+    <script src="https://kit.fontawesome.com/bf116f4f52.js" crossorigin="anonymous"></script>
     <style>
       /* .cargando {
         background-color: lightgray;
@@ -40,19 +41,15 @@
         <select class="form-select" id="tipo"></select>
         <div class="invalid-feedback">Ingresa el tipo</div>
       </div>
-      <!-- <div class="mb-3">
-        <label for="cantidad" class="form-label">Cantidad</label>
-        <input type="number" class="form-control" id="cantidad" />
-        <div class="invalid-feedback">Ingresa una cantidad (1-999)</div>
-      </div> -->
-
       <label for="cantidad" class="form-label">Cantidad</label>
       <div class="input-group mb-3">
         <input type="number" class="form-control" id="cantidad" />
-        <span class="input-group-text">En stock: <span id="stock" class="ms-1 me-1"></span>ud.</span>
+        <span class="input-group-text btn-primary"
+          >En stock: <span id="spinner-stock" class="spinner-grow spinner-grow-sm ms-2 d-none"></span
+          ><span id="stock" class="ms-1 me-1"></span>ud.</span
+        >
         <div class="invalid-feedback">Ingresa una cantidad (1-999)</div>
       </div>
-
       <div class="mb-3">
         <label for="fecha-ingreso" class="form-label">Fecha de ingreso</label>
         <input type="date" class="form-control" id="fecha-ingreso" />
@@ -67,13 +64,24 @@
         <label for="comentarios" class="form-label">Comentarios</label>
         <textarea class="form-control" id="comentarios" rows="3"></textarea>
       </div>
+      <div class="container row">
+        <div class="col form-check form-switch mb-3 align-items-center">
+          <input class="form-check-input" type="checkbox" id="chk-demora" />
+          <label class="form-check-label fw-bold" for="chk-demora" style="font-size: 0.8rem">¿Entrega demorada?</label>
+        </div>
+        <div class="col form-check form-switch mb-3 align-items-center">
+          <input class="form-check-input" type="checkbox" id="chk-obs" />
+          <label class="form-check-label fw-bold" for="chk-obs" style="font-size: 0.8rem">¿Con observaciones?</label>
+        </div>
+      </div>
+      <div id="div-obs"></div>
       <button class="btn btn-primary" id="btn-agregar">Agregar</button>
     </form>
 
     <div id="alerta-error" class="container" style="visibility: hidden">
       <div class="alert alert-danger mt-3 text-center" role="alert">Por favor ingrese los datos obligatorios</div>
     </div>
-    <div id="cargando" class="container">
+    <!-- <div id="spinner-cargando" class="container">
       <div class="cargando d-flex text-center justify-content-center align-items-center">
         <div>
           <div class="mb-3"><strong>Cargando...</strong></div>
@@ -82,7 +90,16 @@
           </div>
         </div>
       </div>
-    </div>
+    </div> -->
+
+    <template id="plantilla-obs">
+      <div class="input-group mb-3 linea-obs">
+        <input type="text" class="form-control obs" placeholder="Una observación por línea" />
+        <button class="btn btn-outline-secondary agregar" type="button"><i class="fas fa-plus"></i></button>
+        <button class="btn btn-outline-secondary eliminar" type="button"><i class="fas fa-minus"></i></button>
+      </div>
+      <div class="invalid-feedback">Ingresa una observación</div>
+    </template>
 
     <script
       src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/js/bootstrap.bundle.min.js"
@@ -97,12 +114,18 @@
       const tipoInput = document.querySelector("#tipo");
       const cantidadInput = document.querySelector("#cantidad");
       const cantidadStock = document.querySelector("#stock");
+      const spinnerStock = document.querySelector("#spinner-stock");
       const fechaInput = document.querySelector("#fecha-ingreso");
       const notaDeliveryInput = document.querySelector("#nota-delivery");
       const comentariosInput = document.querySelector("#comentarios");
+      const chkDemora = document.querySelector("#chk-demora");
+      const chkObs = document.querySelector("#chk-obs");
+      const divObs = document.querySelector("#div-obs");
+      const plantillaObs = document.querySelector("#plantilla-obs");
+
       const btnAgregar = document.querySelector("#btn-agregar");
       const alertaError = document.querySelector("#alerta-error");
-      const cargando = document.querySelector("#cargando");
+      const spinnerCargando = document.querySelector("#spinner-cargando");
 
       let arrayOfArraysCopia;
 
@@ -134,35 +157,26 @@
             cargarHtml(categoriaInput, arrayOfArrays, 0);
             itemInput.disabled = true;
             tipoInput.disabled = true;
-            cargando.remove();
+            spinnerCargando.remove();
           })
           .arrayData(); // Ejecuta la función de obtiene el array de la hoja data
       };
 
-      // Carga el stock en el html
+      // // Carga el stock en el html
       const cargarStock = () => {
-        if (itemInput.value != "") {
-          cantidadStock.innerHTML = "";
-          google.script.run
-            .withSuccessHandler((arrayOfArrays) => {
-              arrayOfArrays = arrayOfArrays.filter(
-                (array) => array[0] === categoriaInput.value && array[1] === itemInput.value && array[2] === tipoInput.value
-              );
-              if (arrayOfArrays[0]) {
-                cantidadStock.innerHTML = arrayOfArrays[0][3];
-              } else {
-                cantidadStock.innerHTML = 0;
-              }
-            })
-            .arrayStock();
-        }
+        cantidadStock.textContent = "";
+        spinnerStock.classList.remove("d-none");
+        google.script.run
+          .withSuccessHandler((stock) => {
+            cantidadStock.textContent = stock;
+            spinnerStock.classList.add("d-none");
+          })
+          .arrayStock(categoriaInput.value, itemInput.value, tipoInput.value);
       };
-
-      //console.log(cargarStock());
 
       const itemsFiltrados = () => {
         itemInput.innerHTML = "";
-        cantidadStock.innerHTML = "";
+        cantidadStock.textContent = "";
         const arrayOfArraysTemporal = arrayOfArraysCopia.filter((array) => array[0] === categoriaInput.value);
         if (categoriaInput.value === "") {
           itemInput.disabled = true;
@@ -177,13 +191,30 @@
 
       const tiposFiltrados = () => {
         tipoInput.innerHTML = "";
-        cantidadStock.innerHTML = "";
+        cantidadStock.textContent = "";
         const arrayOfArraysTemporal = arrayOfArraysCopia.filter((array) => array[0] === categoriaInput.value && array[1] === itemInput.value);
         if (itemInput.value === "" || itemInput.disabled) {
           tipoInput.disabled = true;
         } else {
           cargarHtml(tipoInput, arrayOfArraysTemporal, 2);
           tipoInput.disabled = false;
+        }
+      };
+
+      const agregarObs = () => {
+        plantillaObsCopia = plantillaObs.content.cloneNode(true);
+        divObs.appendChild(plantillaObsCopia);
+      };
+
+      const eliminarTodasObs = () => {
+        divObs.innerHTML = "";
+      };
+
+      const agregarEliminar = (e) => {
+        if (e.target.matches(".agregar *, .agregar")) {
+          agregarObs();
+        } else if (e.target.matches(".eliminar *, .eliminar") && divObs.children.length > 1) {
+          e.target.closest(".linea-obs").remove();
         }
       };
 
@@ -223,20 +254,6 @@
           fechaInput.classList.remove("is-invalid");
           fechaInput.classList.add("is-valid");
         }
-        // if (notaDeliveryInput.value === "") {
-        //   notaDeliveryInput.classList.remove("is-valid");
-        //   notaDeliveryInput.classList.add("is-invalid");
-        // } else {
-        //   notaDeliveryInput.classList.remove("is-invalid");
-        //   notaDeliveryInput.classList.add("is-valid");
-        // }
-        // if (comentariosInput.value === "") {
-        //   comentariosInput.classList.remove("is-valid");
-        //   comentariosInput.classList.add("is-invalid");
-        // } else {
-        //   comentariosInput.classList.remove("is-invalid");
-        //   comentariosInput.classList.add("is-valid");
-        // }
       };
 
       const validarFormulario = () => {
@@ -285,28 +302,13 @@
           }, 2000);
           return false;
         }
-        // if (notaDeliveryInput.value === "") {
-        //   notaDeliveryInput.classList.add("is-invalid");
-        //   notaDeliveryInput.focus();
-        //   alertaError.style.visibility = "visible";
-        //   setTimeout(() => {
-        //     alertaError.style.visibility = "hidden";
-        //   }, 2000);
-        //   return false;
-        // }
-        // if (comentariosInput.value === "") {
-        //   comentariosInput.classList.add("is-invalid");
-        //   comentariosInput.focus();
-        //   return false;
-        // }
+
         categoriaInput.classList.remove("is-valid");
         itemInput.classList.remove("is-valid");
         tipoInput.classList.remove("is-valid");
         cantidadInput.classList.remove("is-valid");
         fechaInput.classList.remove("is-valid");
         notaDeliveryInput.classList.remove("is-valid");
-        cantidadStock.innerHTML = "";
-        // comentariosInput.classList.remove("is-valid");
         return true;
       };
 
@@ -314,6 +316,9 @@
       const registro = (e) => {
         e.preventDefault();
         if (validarFormulario()) {
+          let chkDemoraValue = chkDemora.checked ? "Con demora" : "A tiempo";
+          const inputObs = document.querySelectorAll(".obs");
+          let inputObsValues = inputObs.length === 0 ? "" : Array.prototype.map.call(inputObs, (node) => node.value).join(",");
           const registro = {
             categoria: categoriaInput.value,
             item: itemInput.value,
@@ -322,6 +327,8 @@
             fechaIngreso: fechaInput.value,
             notaDelivery: notaDeliveryInput.value,
             comentarios: comentariosInput.value,
+            chkDemora: chkDemoraValue,
+            inputObservaciones: inputObsValues,
           };
           google.script.run
             .withSuccessHandler(() => {
@@ -332,9 +339,13 @@
               itemInput.disabled = true;
               tipoInput.disabled = true;
               cantidadInput.value = "";
+              cantidadStock.textContent = "";
               fechaInput.value = "";
               notaDeliveryInput.value = "";
               comentariosInput.value = "";
+              chkDemora.checked = false;
+              chkObs.checked = false;
+              eliminarTodasObs();
             })
             .agregarNuevaFila(registro); // agrega la nueva fila a la hoja bd
         }
@@ -347,9 +358,15 @@
       categoriaInput.addEventListener("change", itemsFiltrados);
       itemInput.addEventListener("change", tiposFiltrados);
       tipoInput.addEventListener("change", cargarStock);
-      formulario.addEventListener("change", () => {
-        esteticaValidar();
+      chkObs.addEventListener("change", () => {
+        if (chkObs.checked) {
+          agregarObs();
+        } else {
+          eliminarTodasObs();
+        }
       });
+      divObs.addEventListener("click", agregarEliminar);
+      formulario.addEventListener("change", esteticaValidar);
     </script>
   </body>
 </html>

@@ -11,6 +11,8 @@ const agregarNuevaFila = (registro) => {
     new Date(registro.fechaIngreso).toLocaleDateString("es-PE"),
     registro.notaDelivery,
     registro.comentarios,
+    registro.chkDemora,
+    registro.inputObservaciones,
   ]);
   return true;
 };
@@ -23,12 +25,10 @@ const arrayData = () => {
 };
 
 // extrae la data de stock y retorna un array
-const arrayStock = () => {
-  const categoria = "Fruta";
-  const item = "Manzanas";
-  const tipo = "Rojo";
-
+const arrayStock = (categoria, item, tipo) => {
   const libroActual = SpreadsheetApp.getActiveSpreadsheet();
   const hojaStock = libroActual.getSheetByName("stock");
-  return hojaStock.getRange(2, 1, hojaStock.getLastRow() - 1, 4).getValues();
+  const arrayOfArrays = hojaStock.getRange(2, 1, hojaStock.getLastRow() - 1, 4).getValues();
+  const arrayFiltrado = arrayOfArrays.filter((array) => array[0] === categoria && array[1] === item && array[2] === tipo); // Filtra todas las filas que cumplan con la condición
+  return arrayFiltrado[0] ? arrayFiltrado.reduce((subtotal, col) => subtotal + col[3], 0) : 0; // Suma todos las cantidades de la columna stock de las filas de arrays filtrados
 };
